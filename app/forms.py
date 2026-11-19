@@ -39,7 +39,17 @@ class LoginForm(FlaskForm):
 
 class ActividadForm(FlaskForm):
     """Formulario para crear y editar actividades deportivas."""
+    
+    
+    def __init__(self, *args, actividad_id=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.actividad_id = actividad_id
 
+    def validate_nombre(self, field): 
+        existente = Actividad.query.filter_by(nombre=field.data).first()
+        if existente and existente.id != self.actividad_id:
+            raise ValidationError("Ya existe una actividad con ese nombre.")
+    
     nombre = StringField(
         "Nombre de la Actividad",
         validators=[
@@ -54,10 +64,16 @@ class ActividadForm(FlaskForm):
             Length(min=3, max=50, message="Entre 3 y 50 caracteres."),
         ],
     )
-
-    cuota = FloatField("Cuota Mensual (€)", validators=[DataRequired()])
-    plazas_libres = IntegerField("Plazas Libres", default=10)
-    archivo_imagen = FileField("Cartel de la Actividad (JPG, PNG)")
+    
+    # Valida que cuota sea obligatoria y se encuentre en el rango de 5.0 a 150.0 €
+    cuota = FloatField("Cuota Mensual (€)", validators=[DataRequired(message="La cuota es obligatoria") NumberRange(min=5.0, max=150.0, message="La cuota debe ser entre 5 y 150 euros")])
+    
+    #Valida que plazas_libres sea obligatorio y tenga como valor mínimo 0.
+    plazas_libres = IntegerField("Plazas Libres", default=10, validators=[inputRequired(message="Las plazas libres son obligatorias") NumberRange(min=0)] )
+    
+    # Limita archivo_imagen únicamente a archivos con extensión jpg, jpeg o png usando
+    # FileAllowed
+    archivo_imagen = FileField("Cartel de la Actividad (JPG, PNG)", validators=[FileAllowed(["jpg", "jpeg", "png"], "Solo se permiten imágenes JPG o PNG")])
 
     submit = SubmitField("Guardar Actividad")
 
@@ -104,8 +120,33 @@ class RegistroForm(FlaskForm):
         if Usuario.query.filter_by(email=field.data).first():
             raise ValidationError("Ese correo electrónico ya está en uso.")
 
+# Cambiar contraseña
 
 class CambiarPasswordForm(FlaskForm):
-    """Formulario para cambiar la contraseña desde el perfil del socio."""
-
+    password_actual = PasswordField(
+        "Contraseña actual",
+        validators=[DataRequired(message="Introduce tu contraseña actual.")],
+    )
+    nueva_password = PasswordField(
+        "Nueva contraseña",
+        validators=[
+            DataRequired(message="Introduce la nueva contraseña."),
+            Length(min=6, message="Mínimo 6 caracteres."),
+        ],
+    )
+    confirmar_password = PasswordField(
+        "Confirmar nueva contraseña",
+        validators=[
+            DataRequired(message="Confirma la nueva contraseña."),
+            EqualTo("nueva_password", message="Las contraseñas no coinciden."),
+        ],
+    )
     submit = SubmitField("Actualizar Contraseña")
+    
+# Incorpora en RegistroForm y en registro.html el campo entero edad, validando que sea
+# obligatorio y mayor o igual a 16 años
+edad = IntegerField(
+    "Edad", 
+    validators=[DataRequired(message="La edad es obligatoria"),
+                NumberRange(min=16, message="Debes tener al menos 16 años")]
+)
